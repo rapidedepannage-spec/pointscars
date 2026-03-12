@@ -9984,12 +9984,24 @@ function ContactsPage() {
   const [assureurs, setAssureurs] = useState([]);
   const [experts, setExperts] = useState([]);
   const [loaded, setLoaded] = useState(false);
+  const [apporteurs, setApporteurs] = useState([]);
   const [showAddExp, setShowAddExp] = useState(false);
+  const [showAddApp, setShowAddApp] = useState(false);
   const [newExp, setNewExp] = useState({
     nom: "",
     email: "",
     tel: "",
     adresse: ""
+  });
+  const [newApp, setNewApp] = useState({
+    nom: "",
+    email: "",
+    tel: "",
+    societe: "",
+    regles: "",
+    remise: "",
+    commission: "",
+    notes: ""
   });
   const [editId, setEditId] = useState(null);
   const [editF, setEditF] = useState({});
@@ -10009,6 +10021,9 @@ function ContactsPage() {
       }));
       setExperts(all.filter(function (c) {
         return c.type === "expert";
+      }));
+      setApporteurs(all.filter(function (c) {
+        return c.type === "apporteur";
       }));
       // Init assureurs si vide
       if (!loaded) {
@@ -10063,13 +10078,36 @@ function ContactsPage() {
     });
     setShowAddExp(false);
   };
+  var addApporteur = function () {
+    if (!newApp.nom) return alert("Nom requis");
+    var id = uid();
+    db.collection("contacts").doc(id).set({
+      id: id,
+      type: "apporteur",
+      nom: newApp.nom,
+      email: newApp.email,
+      tel: newApp.tel,
+      societe: newApp.societe,
+      regles: newApp.regles,
+      remise: newApp.remise,
+      commission: newApp.commission,
+      notes: newApp.notes
+    });
+    setNewApp({ nom: "", email: "", tel: "", societe: "", regles: "", remise: "", commission: "", notes: "" });
+    setShowAddApp(false);
+  };
   var startEdit = function (c) {
     setEditId(c.id);
     setEditF({
       nom: c.nom || "",
       email: c.email || "",
       tel: c.tel || "",
-      adresse: c.adresse || ""
+      adresse: c.adresse || "",
+      societe: c.societe || "",
+      regles: c.regles || "",
+      remise: c.remise || "",
+      commission: c.commission || "",
+      notes: c.notes || ""
     });
   };
   var saveEdit = function () {
@@ -10082,6 +10120,9 @@ function ContactsPage() {
   });
   var filteredExp = experts.filter(function (e) {
     return !search || e.nom.toLowerCase().includes(search.toLowerCase()) || (e.email || "").toLowerCase().includes(search.toLowerCase());
+  });
+  var filteredApp = apporteurs.filter(function (a) {
+    return !search || a.nom.toLowerCase().includes(search.toLowerCase()) || (a.email || "").toLowerCase().includes(search.toLowerCase()) || (a.societe || "").toLowerCase().includes(search.toLowerCase());
   });
   if (!loaded) return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -10123,7 +10164,7 @@ function ContactsPage() {
       marginBottom: 14,
       borderBottom: "2px solid #334155"
     }
-  }, [["assureurs", "🏢 Assurances (" + assureurs.length + ")"], ["experts", "🔍 Cabinets d'expertise (" + experts.length + ")"]].map(function (x) {
+  }, [["assureurs", "🏢 Assurances (" + assureurs.length + ")"], ["experts", "🔍 Cabinets d'expertise (" + experts.length + ")"], ["apporteurs", "🤝 Apporteurs (" + apporteurs.length + ")"]].map(function (x) {
     return /*#__PURE__*/React.createElement("div", {
       key: x[0],
       onClick: function () {
@@ -10161,7 +10202,13 @@ function ContactsPage() {
       setShowAddExp(!showAddExp);
     },
     style: S.b
-  }, showAddExp ? "✕" : "+ Ajouter un cabinet")), tab === "experts" && showAddExp && /*#__PURE__*/React.createElement("div", {
+  }, showAddExp ? "✕" : "+ Ajouter un cabinet"),
+  tab === "apporteurs" && /*#__PURE__*/React.createElement("button", {
+    onClick: function () {
+      setShowAddApp(!showAddApp);
+    },
+    style: {...S.b, background: "linear-gradient(135deg,#10B981,#059669)"}
+  }, showAddApp ? "✕" : "+ Ajouter un apporteur")), tab === "experts" && showAddExp && /*#__PURE__*/React.createElement("div", {
     style: {
       ...S.c,
       padding: "16px",
@@ -10621,7 +10668,159 @@ function ContactsPage() {
         fontSize: 14
       }
     }, "\uD83D\uDDD1")));
-  }))));
+  }))),
+
+  // === ONGLET APPORTEURS D'AFFAIRE ===
+  tab === "apporteurs" && showAddApp && React.createElement("div", {
+    style: { ...S.c, padding: "16px", marginBottom: 14, animation: "fi .2s", border: "1px solid rgba(16,185,129,0.3)" }
+  },
+    React.createElement("h4", { style: { fontSize: 12, fontWeight: 600, marginBottom: 10 } }, "\uD83E\uDD1D Nouvel apporteur d'affaire"),
+    React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 } },
+      React.createElement("div", null,
+        React.createElement("label", { style: S.l }, "Nom *"),
+        React.createElement("input", { style: S.i, value: newApp.nom, onChange: function(e){ setNewApp({...newApp, nom: e.target.value}); }, placeholder: "Nom complet\u2026" })
+      ),
+      React.createElement("div", null,
+        React.createElement("label", { style: S.l }, "Soci\u00e9t\u00e9"),
+        React.createElement("input", { style: S.i, value: newApp.societe, onChange: function(e){ setNewApp({...newApp, societe: e.target.value}); }, placeholder: "Nom de la soci\u00e9t\u00e9\u2026" })
+      ),
+      React.createElement("div", null,
+        React.createElement("label", { style: S.l }, "Email"),
+        React.createElement("input", { type: "email", style: S.i, value: newApp.email, onChange: function(e){ setNewApp({...newApp, email: e.target.value}); }, placeholder: "contact@apporteur.fr" })
+      ),
+      React.createElement("div", null,
+        React.createElement("label", { style: S.l }, "T\u00e9l\u00e9phone"),
+        React.createElement("input", { style: S.i, value: newApp.tel, onChange: function(e){ setNewApp({...newApp, tel: e.target.value}); }, placeholder: "06 12 34 56 78" })
+      ),
+      React.createElement("div", null,
+        React.createElement("label", { style: S.l }, "Remise (%)"),
+        React.createElement("input", { style: S.i, value: newApp.remise, onChange: function(e){ setNewApp({...newApp, remise: e.target.value}); }, placeholder: "Ex: 10%" })
+      ),
+      React.createElement("div", null,
+        React.createElement("label", { style: S.l }, "Commission"),
+        React.createElement("input", { style: S.i, value: newApp.commission, onChange: function(e){ setNewApp({...newApp, commission: e.target.value}); }, placeholder: "Ex: 50\u20AC/dossier ou 5%" })
+      )
+    ),
+    React.createElement("div", { style: { marginBottom: 8 } },
+      React.createElement("label", { style: S.l }, "R\u00e8gles et conditions"),
+      React.createElement("textarea", { style: { ...S.i, width: "100%", resize: "vertical", lineHeight: 1.6 }, rows: 3, value: newApp.regles, onChange: function(e){ setNewApp({...newApp, regles: e.target.value}); },
+        placeholder: "Ex: Remise 10% sur main d'\u0153uvre pour tous ses clients\nCommission 50\u20AC par dossier valid\u00e9\nPas de remise sur pi\u00e8ces\u2026" })
+    ),
+    React.createElement("div", { style: { marginBottom: 8 } },
+      React.createElement("label", { style: S.l }, "Notes"),
+      React.createElement("textarea", { style: { ...S.i, width: "100%", resize: "vertical" }, rows: 2, value: newApp.notes, onChange: function(e){ setNewApp({...newApp, notes: e.target.value}); },
+        placeholder: "Notes internes\u2026" })
+    ),
+    React.createElement("div", { style: { display: "flex", gap: 6, justifyContent: "flex-end" } },
+      React.createElement("button", { onClick: function(){ setShowAddApp(false); }, style: S.bg }, "Annuler"),
+      React.createElement("button", { onClick: addApporteur, style: {...S.b, background: "linear-gradient(135deg,#10B981,#059669)"} }, "\u2713 Ajouter")
+    )
+  ),
+
+  tab === "apporteurs" && React.createElement("div", null,
+    !filteredApp.length && !showAddApp && React.createElement("div", {
+      style: { ...S.c, padding: "30px", textAlign: "center" }
+    },
+      React.createElement("div", { style: { fontSize: 36, marginBottom: 8 } }, "\uD83E\uDD1D"),
+      React.createElement("div", { style: { fontWeight: 600, marginBottom: 4 } }, "Aucun apporteur d'affaire"),
+      React.createElement("p", { style: { fontSize: 11, color: "#94A3B8" } }, "Cliquez sur \"+ Ajouter un apporteur\" pour commencer")
+    ),
+    React.createElement("div", { style: { display: "grid", gap: 6 } },
+      filteredApp.map(function(a) {
+        var isEdit = editId === a.id;
+        if (isEdit) return React.createElement("div", {
+          key: a.id,
+          style: { ...S.c, padding: "14px", border: "1px solid rgba(16,185,129,0.3)", animation: "fi .2s" }
+        },
+          React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 } },
+            React.createElement("div", null,
+              React.createElement("label", { style: S.l }, "Nom"),
+              React.createElement("input", { style: S.i, value: editF.nom, onChange: function(ev){ setEditF({...editF, nom: ev.target.value}); } })
+            ),
+            React.createElement("div", null,
+              React.createElement("label", { style: S.l }, "Soci\u00e9t\u00e9"),
+              React.createElement("input", { style: S.i, value: editF.societe||"", onChange: function(ev){ setEditF({...editF, societe: ev.target.value}); } })
+            ),
+            React.createElement("div", null,
+              React.createElement("label", { style: S.l }, "Email"),
+              React.createElement("input", { type: "email", style: S.i, value: editF.email, onChange: function(ev){ setEditF({...editF, email: ev.target.value}); } })
+            ),
+            React.createElement("div", null,
+              React.createElement("label", { style: S.l }, "T\u00e9l\u00e9phone"),
+              React.createElement("input", { style: S.i, value: editF.tel, onChange: function(ev){ setEditF({...editF, tel: ev.target.value}); } })
+            ),
+            React.createElement("div", null,
+              React.createElement("label", { style: S.l }, "Remise (%)"),
+              React.createElement("input", { style: S.i, value: editF.remise||"", onChange: function(ev){ setEditF({...editF, remise: ev.target.value}); } })
+            ),
+            React.createElement("div", null,
+              React.createElement("label", { style: S.l }, "Commission"),
+              React.createElement("input", { style: S.i, value: editF.commission||"", onChange: function(ev){ setEditF({...editF, commission: ev.target.value}); } })
+            )
+          ),
+          React.createElement("div", { style: { marginBottom: 8 } },
+            React.createElement("label", { style: S.l }, "R\u00e8gles et conditions"),
+            React.createElement("textarea", { style: { ...S.i, width: "100%", resize: "vertical", lineHeight: 1.6 }, rows: 3, value: editF.regles||"", onChange: function(ev){ setEditF({...editF, regles: ev.target.value}); } })
+          ),
+          React.createElement("div", { style: { marginBottom: 8 } },
+            React.createElement("label", { style: S.l }, "Notes"),
+            React.createElement("textarea", { style: { ...S.i, width: "100%", resize: "vertical" }, rows: 2, value: editF.notes||"", onChange: function(ev){ setEditF({...editF, notes: ev.target.value}); } })
+          ),
+          React.createElement("div", { style: { display: "flex", gap: 6, justifyContent: "flex-end" } },
+            React.createElement("button", { onClick: function(){ setEditId(null); }, style: S.bg }, "Annuler"),
+            React.createElement("button", { onClick: saveEdit, style: {...S.b, background: "linear-gradient(135deg,#10B981,#059669)"} }, "\u2713 Enregistrer")
+          )
+        );
+
+        return React.createElement("div", {
+          key: a.id,
+          style: { ...S.c, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8 }
+        },
+          // En-tête avec avatar, nom et actions
+          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12 } },
+            React.createElement("div", {
+              style: { width: 38, height: 38, borderRadius: 9, background: "rgba(16,185,129,0.1)", display: "flex", alignItems: "center", justifyContent: "center", color: "#10B981", fontWeight: 700, fontSize: 14, flexShrink: 0 }
+            }, a.nom.charAt(0)),
+            React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+              React.createElement("div", { style: { fontWeight: 600, fontSize: 13 } }, a.nom),
+              a.societe && React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", marginTop: 1 } }, "\uD83C\uDFE2 " + a.societe),
+              React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", marginTop: 2 } },
+                a.email ? React.createElement("span", { style: { fontSize: 10, color: "#06B6D4" } }, "\uD83D\uDCE7 " + a.email) : React.createElement("span", { style: { fontSize: 10, color: "#475569" } }, "\uD83D\uDCE7 Non renseign\u00e9"),
+                a.tel ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, "\uD83D\uDCDE " + a.tel) : React.createElement("span", { style: { fontSize: 10, color: "#475569" } }, "\uD83D\uDCDE \u2014")
+              )
+            ),
+            React.createElement("div", { style: { display: "flex", gap: 4 } },
+              React.createElement("span", { onClick: function(){ startEdit(a); }, style: { cursor: "pointer", fontSize: 14 } }, "\u270F\uFE0F"),
+              a.email && React.createElement("span", { onClick: function(){ window.open("https://outlook.live.com/mail/0/deeplink/compose?to=" + encodeURIComponent(a.email), "_blank"); }, style: { cursor: "pointer", fontSize: 14 } }, "\u2709\uFE0F"),
+              React.createElement("span", { onClick: function(){ deleteContact(a.id); }, style: { cursor: "pointer", fontSize: 14 } }, "\uD83D\uDDD1")
+            )
+          ),
+          // Badges remise + commission
+          (a.remise || a.commission) && React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } },
+            a.remise && React.createElement("span", {
+              style: { fontSize: 10, fontWeight: 700, padding: "3px 10px", borderRadius: 12, background: "rgba(16,185,129,0.1)", color: "#10B981", border: "1px solid rgba(16,185,129,0.2)" }
+            }, "\uD83C\uDFF7\uFE0F Remise : " + a.remise),
+            a.commission && React.createElement("span", {
+              style: { fontSize: 10, fontWeight: 700, padding: "3px 10px", borderRadius: 12, background: "rgba(245,158,11,0.1)", color: "#F59E0B", border: "1px solid rgba(245,158,11,0.2)" }
+            }, "\uD83D\uDCB0 Commission : " + a.commission)
+          ),
+          // Règles
+          a.regles && React.createElement("div", {
+            style: { padding: "8px 12px", background: "#0F172A", borderRadius: 8, border: "1px solid #334155", fontSize: 11, color: "#CBD5E1", whiteSpace: "pre-wrap", lineHeight: 1.5 }
+          },
+            React.createElement("span", { style: { fontSize: 10, fontWeight: 600, color: "#10B981", display: "block", marginBottom: 4 } }, "\uD83D\uDCCB R\u00e8gles :"),
+            a.regles
+          ),
+          // Notes
+          a.notes && React.createElement("div", {
+            style: { fontSize: 10, color: "#64748B", fontStyle: "italic", padding: "4px 0" }
+          }, "\uD83D\uDCDD " + a.notes)
+        );
+      })
+    )
+  )
+
+  );
 }
 
 /* === AGENDA === */
