@@ -17,6 +17,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0F172A;color:#E2
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#475569;border-radius:3px}
 @keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1}}
 @keyframes sp{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 .hr:hover{background:#1E293B!important}
 
 /* === MOBILE RESPONSIVE === */
@@ -911,6 +912,7 @@ function MainApp({
   });
   const [dd, sDd] = useState(null);
   const [dt, sDt] = useState("infos");
+  const [pendingIaFile, setPendingIaFile] = useState(null);
   const [sf, sSf] = useState(null);
   const [sm, sSm] = useState(null);
   const [cp, sCp] = useState(false);
@@ -1102,6 +1104,10 @@ function MainApp({
     if (u.sta === "facture") u.dateFacture = new Date().toISOString();
     // Si on change de statut depuis facture/relance, nettoyer
     if (u.sta && u.sta !== "facture" && u.sta !== "relance") u.dateFacture = null;
+    // Si passage en "ead_envoye", stocker la date pour relance 48h
+    if (u.sta === "ead_envoye") u.dateEadEnvoye = new Date().toISOString();
+    // Si on quitte ead_envoye, nettoyer
+    if (u.sta && u.sta !== "ead_envoye") u.dateEadEnvoye = null;
     db.collection("dossiers").doc(id).update(u);
     // Bot notif: changements de statut
     if (u.sta) {
@@ -1110,12 +1116,18 @@ function MainApp({
       });
       var nom = d ? (d.cli || "") + " — " + (d.imm || "") : id;
       var labels = {
-        attente: "⏳ En attente",
+        nouveau: "📁 Nouveau",
+        contact: "📞 Contacté",
+        attente_rapport: "📄 Attente rapport",
         expertise: "🔍 Expertise",
+        attente: "⏳ Attente accord",
+        ead_a_faire: "📝 EAD à faire",
+        ead_envoye: "📨 EAD envoyé",
         reparation: "🔧 En réparation",
+        termine: "✅ Terminé",
         facture: "💰 Facturé",
         relance: "⚠️ Relance",
-        termine: "✅ Terminé"
+        regle: "💵 Réglé"
       };
       var label = labels[u.sta] || u.sta;
       botMsg("general", label + " → " + nom + " (par " + curUser.nom + ")");
@@ -1140,6 +1152,37 @@ function MainApp({
     };
     checkRelance();
     var interval = setInterval(checkRelance, 60000);
+    return function () {
+      clearInterval(interval);
+    };
+  }, [dos]);
+
+  // Alerte EAD: vérifier toutes les 60s si un dossier EAD envoyé > 48h sans MAJ
+  const [eadAlerts, setEadAlerts] = useState([]);
+  useEffect(function () {
+    var checkEad = function () {
+      var now = new Date();
+      var alerts = [];
+      dos.forEach(function (d) {
+        if (d.sta === "ead_envoye" && d.dateEadEnvoye) {
+          var diffH = (now - new Date(d.dateEadEnvoye)) / (1000 * 60 * 60);
+          if (diffH >= 48) {
+            alerts.push({ id: d.id, cli: d.cli, imm: d.imm, heures: Math.round(diffH) });
+          }
+        }
+      });
+      setEadAlerts(alerts);
+      // Notifier une seule fois par dossier via bot
+      alerts.forEach(function (a) {
+        var key = "ead_alert_" + a.id;
+        if (!window[key]) {
+          window[key] = true;
+          botMsg("urgent", "📨 Relance EAD : " + (a.cli || "") + " — " + (a.imm || "") + " (EAD envoyé depuis " + a.heures + "h sans mise à jour)");
+        }
+      });
+    };
+    checkEad();
+    var interval = setInterval(checkEad, 60000);
     return function () {
       clearInterval(interval);
     };
@@ -1588,7 +1631,51 @@ function MainApp({
       fontSize: 11,
       fontWeight: 600
     }
-  }, d.mt ? d.mt + "€" : "—", d.dateFacture ? " — facturé le " + new Date(d.dateFacture).toLocaleDateString("fr-FR") : ""))))), pg === "dos" && /*#__PURE__*/React.createElement("div", {
+  }, d.mt ? d.mt + "€" : "—", d.dateFacture ? " — facturé le " + new Date(d.dateFacture).toLocaleDateString("fr-FR") : ""))))), eadAlerts.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "rgba(236,72,153,0.08)",
+      borderRadius: 11,
+      padding: "14px",
+      border: "1px solid rgba(236,72,153,0.2)",
+      animation: "fi .3s"
+    }
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: {
+      fontSize: 11,
+      fontWeight: 600,
+      color: "#F472B6",
+      marginBottom: 8
+    }
+  }, "\uD83D\uDCE8 Relance EAD (envoy\u00E9 > 48h sans MAJ)"), eadAlerts.map(function(a) { return /*#__PURE__*/React.createElement("div", {
+    key: a.id,
+    onClick: function() {
+      var dd = dos.find(function(x){ return x.id === a.id; });
+      if(dd){ sDd(dd); sDt("mails"); sP("det"); }
+    },
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      padding: "5px 0",
+      cursor: "pointer"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 600,
+      fontSize: 12
+    }
+  }, a.cli || "—", " ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "#94A3B8",
+      fontWeight: 400,
+      fontSize: 11
+    }
+  }, a.imm || "")), /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "#EC4899",
+      fontSize: 11,
+      fontWeight: 600
+    }
+  }, a.heures + "h sans r\u00E9ponse")); })), pg === "dos" && /*#__PURE__*/React.createElement("div", {
     style: {
       animation: "fi .3s"
     }
@@ -1741,7 +1828,10 @@ function MainApp({
     }
   }, /*#__PURE__*/React.createElement(Badge, {
     s: d.sta
-  })), /*#__PURE__*/React.createElement("td", {
+  }), eadAlerts.some(function(a){ return a.id === d.id; }) && /*#__PURE__*/React.createElement("span", {
+    style: { marginLeft: 4, fontSize: 10, color: "#EC4899", animation: "pulse 1.5s infinite" },
+    title: "EAD envoyé > 48h sans réponse"
+  }, "\u26A0\uFE0F")), /*#__PURE__*/React.createElement("td", {
     style: {
       padding: "7px"
     }
@@ -1785,7 +1875,8 @@ function MainApp({
         style:{...S.c,padding:14,cursor:"pointer",borderLeft:"3px solid "+stObj.c,marginBottom:0}},
         React.createElement("div", {style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}},
           React.createElement("span", {style:{fontFamily:"monospace",color:"#F59E0B",fontSize:11,fontWeight:700}}, d.num),
-          React.createElement(Badge, {s:d.sta})),
+          React.createElement(Badge, {s:d.sta}),
+          eadAlerts.some(function(a){ return a.id === d.id; }) && React.createElement("span", {style:{fontSize:10,color:"#EC4899",animation:"pulse 1.5s infinite",marginLeft:4},title:"EAD > 48h"}, "\u26A0\uFE0F")),
         React.createElement("div", {style:{fontSize:13,fontWeight:600,color:"#F8FAFC",marginBottom:4}}, d.cli||"Sans nom"),
         React.createElement("div", {style:{display:"flex",gap:10,fontSize:11,color:"#94A3B8",marginBottom:6,flexWrap:"wrap"}},
           React.createElement("span", null, "\uD83D\uDE97 "+(d.veh||"")),
@@ -1815,7 +1906,9 @@ function MainApp({
       sP("dos");
     },
     up: updDos,
-    curUser: curUser
+    curUser: curUser,
+    pendingIaFile: pendingIaFile,
+    clearPendingIa: function(){ setPendingIaFile(null); }
   }), pg === "mail" && /*#__PURE__*/React.createElement("div", {
     style: {
       animation: "fi .3s"
@@ -2064,7 +2157,9 @@ function DetailView({
   sT,
   bk,
   up,
-  curUser
+  curUser,
+  pendingIaFile,
+  clearPendingIa
 }) {
   const pt = (d.pcs || []).reduce(function (a, pc) {
     var pa = pc.pa !== undefined && pc.pa !== null ? pc.pa : pc.p || 0;
@@ -2263,7 +2358,9 @@ function DetailView({
   }), tab === "rapport" && /*#__PURE__*/React.createElement(RapportIA, {
     d: d,
     up: up,
-    curUser: curUser
+    curUser: curUser,
+    pendingIaFile: pendingIaFile,
+    clearPendingIa: clearPendingIa
   }), tab === "photos" && /*#__PURE__*/React.createElement(PhotosTab, {
     d: d,
     up: up
@@ -4807,7 +4904,9 @@ function PiecesTab({
 function RapportIA({
   d,
   up,
-  curUser
+  curUser,
+  pendingIaFile,
+  clearPendingIa
 }) {
   const [ld, sL] = useState(false);
   const [er, sE] = useState(null);
@@ -4828,6 +4927,14 @@ function RapportIA({
       unsub();
     };
   }, []);
+  // Auto-analyse si un fichier arrive depuis Outlook
+  useEffect(function() {
+    if (pendingIaFile && apiKey) {
+      proc(pendingIaFile);
+      if (clearPendingIa) clearPendingIa();
+    }
+  }, [pendingIaFile, apiKey]);
+
   const saveKey = function (k) {
     setApiKey(k);
     db.collection("settings").doc("apiKey").set({
@@ -6377,7 +6484,7 @@ function TodoPage({
 }
 
 /* === OUTLOOK EMAIL === */
-function OutlookPage({ curUser }) {
+function OutlookPage({ curUser, goToDossierIA }) {
   var _s = useState(false), outlookConnected = _s[0], setOutlookConnected = _s[1];
   var _a = useState(null), outlookAccount = _a[0], setOutlookAccount = _a[1];
   var _m = useState([]), emails = _m[0], setEmails = _m[1];
@@ -6400,6 +6507,8 @@ function OutlookPage({ curUser }) {
   var _savProg = useState(null), savedMsg = _savProg[0], setSavedMsg = _savProg[1];
   var _savBusy = useState(false), savingBusy = _savBusy[0], setSavingBusy = _savBusy[1];
   var _dosSearch = useState(""), dosSearch = _dosSearch[0], setDosSearch = _dosSearch[1];
+  var _iaAttId = useState(null), iaAttId = _iaAttId[0], setIaAttId = _iaAttId[1];
+  var _iaDosSearch = useState(""), iaDosSearch = _iaDosSearch[0], setIaDosSearch = _iaDosSearch[1];
 
   useEffect(function() {
     if(!msalInstance) return;
@@ -6673,9 +6782,52 @@ function OutlookPage({ curUser }) {
                 ),
                 React.createElement("button", {onClick:function(){
                   if(isOpen) { setSavingAttId(null); setDosSearch(""); }
-                  else setSavingAttId(att.id);
+                  else { setSavingAttId(att.id); setIaAttId(null); }
                 }, style:{...S.b,padding:"6px 14px",fontSize:11,whiteSpace:"nowrap"}},
-                  isOpen ? "\u2715 Fermer" : "\uD83D\uDCC1 Dossier")
+                  isOpen ? "\u2715 Fermer" : "\uD83D\uDCC1 Dossier"),
+                // Bouton Analyser IA (seulement pour les PDF)
+                (att.name||"").toLowerCase().endsWith(".pdf") && goToDossierIA && React.createElement("button", {onClick:function(){
+                  if(iaAttId === att.id) { setIaAttId(null); setIaDosSearch(""); }
+                  else { setIaAttId(att.id); setSavingAttId(null); }
+                }, style:{...S.b,padding:"6px 14px",fontSize:11,whiteSpace:"nowrap",background:iaAttId===att.id?"#7C3AED":"linear-gradient(135deg,#8B5CF6,#7C3AED)",color:"#FFF",border:"none",fontWeight:600}},
+                  iaAttId === att.id ? "\u2715 Fermer" : "\uD83E\uDD16 Analyser IA")
+              ),
+              // Selecteur de dossier pour IA
+              iaAttId === att.id && React.createElement("div", {style:{marginTop:6,marginLeft:30,padding:"12px",background:"linear-gradient(135deg,rgba(139,92,246,0.08),rgba(139,92,246,0.02))",borderRadius:8,border:"1px solid rgba(139,92,246,0.3)",maxHeight:250,overflowY:"auto"}},
+                React.createElement("div", {style:{fontSize:11,fontWeight:600,color:"#A78BFA",marginBottom:8}}, "\uD83E\uDD16 Choisir le dossier pour l'analyse IA"),
+                React.createElement("input", {type:"text",value:iaDosSearch,onChange:function(e){setIaDosSearch(e.target.value);},
+                  placeholder:"\uD83D\uDD0D Rechercher un dossier...",
+                  style:{...S.i,marginBottom:8,fontSize:12}}),
+                React.createElement("div", {style:{display:"flex",flexDirection:"column",gap:3}},
+                  (function(){
+                    var fd = allDos;
+                    if(iaDosSearch.trim()) {
+                      var q = iaDosSearch.trim().toLowerCase();
+                      fd = allDos.filter(function(d){ return (d.cli||"").toLowerCase().indexOf(q)>=0 || (d.imm||"").toLowerCase().indexOf(q)>=0 || (d.num||"").toLowerCase().indexOf(q)>=0; });
+                    }
+                    return fd.slice(0,15).map(function(dos) {
+                      return React.createElement("div", {key:dos.id,
+                        onClick:function(){
+                          // Convertir les contentBytes en File et envoyer à l'IA du dossier
+                          var byteChars = atob(att.contentBytes);
+                          var byteNumbers = new Array(byteChars.length);
+                          for(var i=0;i<byteChars.length;i++) byteNumbers[i]=byteChars.charCodeAt(i);
+                          var byteArray = new Uint8Array(byteNumbers);
+                          var file = new File([byteArray], att.name||"rapport.pdf", {type:"application/pdf"});
+                          setIaAttId(null); setIaDosSearch("");
+                          goToDossierIA(dos.id, file);
+                        },
+                        style:{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:6,cursor:"pointer",
+                          background:"#0F172A",border:"1px solid rgba(139,92,246,0.2)",transition:"all .15s"}},
+                        React.createElement("span", {style:{fontSize:13}}, "\uD83E\uDD16"),
+                        React.createElement("div", {style:{flex:1,minWidth:0}},
+                          React.createElement("div", {style:{fontSize:12,fontWeight:600,color:"#E2E8F0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}, dos.cli || "Sans nom"),
+                          React.createElement("div", {style:{fontSize:10,color:"#64748B"}}, [dos.num,dos.veh,dos.imm].filter(Boolean).join(" \u2014 "))
+                        )
+                      );
+                    });
+                  })()
+                )
               ),
               // Selecteur de dossier
               isOpen && React.createElement("div", {style:{marginTop:6,marginLeft:30,padding:"12px",background:"#1E293B",borderRadius:8,border:"1px solid #334155",maxHeight:250,overflowY:"auto"}},
@@ -7196,7 +7348,10 @@ function InboxPage({
       color: tab === "outlook" ? "#60A5FA" : "#94A3B8",
       border: "1px solid " + (tab === "outlook" ? "rgba(0,120,212,0.3)" : "#334155")
     }
-  }, "\uD83D\uDCE7 Outlook")), tab === "outlook" ? /*#__PURE__*/React.createElement(OutlookPage, { curUser: curUser }) : /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDCE7 Outlook")), tab === "outlook" ? /*#__PURE__*/React.createElement(OutlookPage, { curUser: curUser, goToDossierIA: function(dosId, attData) {
+  var dObj = dos.find(function(x){return x.id === dosId;});
+  if(dObj) { setPendingIaFile(attData); sDd(dObj); sDt("rapport"); sP("det"); }
+} }) : /*#__PURE__*/React.createElement("div", {
     style: {
       ...S.c,
       padding: "8px"
